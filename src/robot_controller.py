@@ -76,11 +76,12 @@ def move_to_home() -> str:
 
 
 @mcp.tool()
-def move_slowly(direction: Literal["上", "下", "左", "右", "前", "後"], distance: float) -> str:
+def move_slowly(direction: Literal["上", "下", "左", "右", "前", "後", "奥", "手前"], distance: float) -> str:
     """Move the robot slowly with a relative offset in the given direction.
 
     Args:
-        direction: Move direction ("上" / "下" / "左" / "右" / "前（奥）" / "後（手前）").
+        direction: Move direction ("上" / "下" / "左" / "右" / "前" / "奥" / "後" / "手前").
+                   "奥" is an alias for "前", "手前" is an alias for "後".
         distance: Move distance in millimeters. Must be greater than 0.
 
     Returns:
@@ -92,7 +93,9 @@ def move_slowly(direction: Literal["上", "下", "左", "右", "前", "後"], di
 
     direction_to_offset = {
         "前": (distance, 0.0, 0.0),
+        "奥": (distance, 0.0, 0.0),
         "後": (-distance, 0.0, 0.0),
+        "手前": (-distance, 0.0, 0.0),
         "左": (0.0, distance, 0.0),
         "右": (0.0, -distance, 0.0),
         "上": (0.0, 0.0, distance),
