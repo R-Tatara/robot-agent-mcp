@@ -19,3 +19,6 @@ wheels/
 # AI harness file
 AGENTS.md
 CLAUDE.md
+
+# Confidential files
+trouble_shooting.json

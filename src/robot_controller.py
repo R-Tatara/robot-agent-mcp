@@ -1,11 +1,15 @@
 from mcp.server.fastmcp import FastMCP
 from typing import Literal
+import json
+from pathlib import Path
 
 from melfa_api import RobotController, RcResultCode
 
-IP_ADDR = "192.168.179.10"
+IP_ADDR = "192.168.179.105"
 PORT_NO = 10002
 mcp = FastMCP("robot-mcp-server")
+
+error_database: dict[int, dict] = {}
 
 
 @mcp.tool()
@@ -69,6 +73,12 @@ def move_to_home() -> str:
         if ret != RcResultCode.MR_OK:
             return "Failed to move to home position."
         
+        ret, state = rc.get_slot_state()
+        if ret != RcResultCode.MR_OK:
+            return "Failed to get slot state."
+        if state.err_no != 0:
+            return f"Error {state.err_no} occurred during movement."
+        
         return "Moved to home position successfully."
     finally:
         rc.turn_servo(False)
@@ -82,7 +92,7 @@ def move_slowly(direction: Literal["上", "下", "左", "右", "前", "後", "�
     Args:
         direction: Move direction ("上" / "下" / "左" / "右" / "前" / "奥" / "後" / "手前").
                    "奥" is an alias for "前", "手前" is an alias for "後".
-        distance: Move distance in millimeters. Must be greater than 0.
+        distance: Move any distance in millimeters. Must be greater than 0.
 
     Returns:
         A result message. Returns a failure reason for invalid input,
@@ -122,6 +132,12 @@ def move_slowly(direction: Literal["上", "下", "左", "右", "前", "後", "�
         )
         if ret != RcResultCode.MR_OK:
             return f"Failed to move {direction}."
+
+        ret, state = rc.get_slot_state()
+        if ret != RcResultCode.MR_OK:
+            return "Failed to get slot state."
+        if state.err_no != 0:
+            return f"Error {state.err_no} occurred during movement."
         
         return f"Moved {direction} by {distance:.1f} mm slowly."
     finally:
@@ -166,6 +182,12 @@ def rotate_tool_slowly(rotation: Literal["時計回り", "反時計回り"], ang
         if ret != RcResultCode.MR_OK:
             return f"Failed to rotate tool {rotation}."
 
+        ret, state = rc.get_slot_state()
+        if ret != RcResultCode.MR_OK:
+            return "Failed to get slot state."
+        if state.err_no != 0:
+            return f"Error {state.err_no} occurred during movement."
+        
         return f"Rotated tool {rotation} by {angle:.1f} degrees slowly."
     finally:
         rc.turn_servo(False)
@@ -190,5 +212,36 @@ def reset_error() -> str:
         rc.disconnect()
 
 
+@mcp.tool()
+def investigate_robot_error(error_code: int) -> str:
+    """Investigate the cause of the robot's error.
+    
+    Args:
+        error_code: 4-digit error code from the robot.
+    """
+    if error_code in error_database:
+        return error_database[error_code]
+    else:
+        return f"Error code {error_code} not found in database."
+
+
+def load_json() -> None:
+    """Load error codes from trouble_shooting.json into memory."""
+    global error_database
+    json_path = Path(__file__).parent / "trouble_shooting.json"
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for error in data.get("errors", []):
+            code = error.get("code")
+            cause = error.get("cause", "")
+            measures = error.get("measures", "")
+            if code is not None:
+                error_database[code] = f"{cause} {measures}".strip()
+    except Exception as e:
+        print(f"Failed to load error database: {e}")
+
+
 if __name__ == "__main__":
+    load_json()
     mcp.run()
